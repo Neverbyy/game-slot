@@ -1,0 +1,99 @@
+:root {
+  --bg: #05070f;
+  --panel: rgba(16, 20, 33, 0.92);
+  --panel-solid: #141a2b;
+  --border: rgba(126, 152, 214, 0.28);
+  --text: #f2f5ff;
+  --text-muted: #94a3c4;
+  --gold: #f5c518;
+  --gold-soft: #ffe37a;
+  --danger: #e0453f;
+  --radius: 12px;
+  --bar-height: 96px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Arial,
+    sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  &.is-active {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(245, 197, 24, 0.14);
+  }
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 104px;
+
+  &__label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  &__value {
+    font-size: 19px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
