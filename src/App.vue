@@ -10,7 +10,7 @@ import PaytableModal from '@/components/ui/PaytableModal.vue';
 import ToastMessage from '@/components/ui/ToastMessage.vue';
 import { useBootstrap } from '@/composables/useBootstrap';
 import { useButtonHoverSound } from '@/composables/useButtonHoverSound';
-import { DEBUG } from '@/config/debug.config';
+import { DEBUG_PANEL } from '@/config/debug.config';
 
 const { game, ui } = useBootstrap();
 useButtonHoverSound();
@@ -36,7 +36,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
       <GameCanvas />
       <!-- Панель висит поверх канваса прямо под барабанами. -->
       <BottomBar />
-      <DebugOverlay v-if="DEBUG" />
+      <DebugOverlay v-if="DEBUG_PANEL" />
       <ToastMessage />
     </main>
 
