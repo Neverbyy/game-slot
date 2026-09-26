@@ -130,7 +130,9 @@ export class GameApp {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     tweens.cancelAll();
-    sound.dispose();
+    // Звук не трогаем: он общий для всей страницы (наведение на кнопки
+    // интерфейса), а не только для канваса. Повторный `init()` его не
+    // перезагрузит — `sound.load()` вернёт уже готовую загрузку.
 
     // Общие текстуры из Assets не трогаем — только сцену и свою вырезку.
     this.app?.destroy(true, { children: true, texture: false });

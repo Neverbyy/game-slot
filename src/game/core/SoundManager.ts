@@ -62,7 +62,7 @@ class SoundManager {
     }
   }
 
-  /** Остановить всё и освободить аудио — при уничтожении игры. */
+  /** Остановить всё и освободить аудио — когда модуль заменяется при HMR. */
   dispose(): void {
     for (const channel of [...this.channels.keys()]) this.stopChannel(channel, 0);
     this.removeUnlock?.();
@@ -250,3 +250,7 @@ class SoundManager {
 }
 
 export const sound = new SoundManager();
+
+// При горячей замене модуля старый экземпляр иначе продолжил бы играть музыку
+// поверх нового и держать слушатели на window.
+import.meta.hot?.dispose(() => sound.dispose());
