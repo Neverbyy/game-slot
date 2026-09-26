@@ -3,6 +3,7 @@
  * локальным движком и отдаёт тот же контракт, что потом отдаст сервер.
  */
 
+import { debugParam } from '@/config/debug.config';
 import { GRID } from '@/config/layout.config';
 import {
   BET_LEVELS,
@@ -99,8 +100,7 @@ export const mockSlotApi: SlotApi = {
       steps: outcome.steps,
       totalWin: outcome.totalWin,
       balanceAfter: balance,
-      freeSpins:
-        freeSpins.left > 0 || outcome.freeSpinsAwarded > 0 ? { ...freeSpins } : undefined,
+      freeSpins: freeSpins.left > 0 || outcome.freeSpinsAwarded > 0 ? { ...freeSpins } : undefined,
     };
 
     processed.set(req.clientSpinId, response);
@@ -152,7 +152,6 @@ function matchesScenario(
 const FORCED_SCENARIOS: readonly ForcedScenario[] = ['bigwin', 'freespins', 'lightning', 'slam'];
 
 function readForced(): ForcedScenario | null {
-  if (typeof window === 'undefined') return null;
-  const value = new URLSearchParams(window.location.search).get('force') as ForcedScenario | null;
+  const value = debugParam('force') as ForcedScenario | null;
   return value && FORCED_SCENARIOS.includes(value) ? value : null;
 }

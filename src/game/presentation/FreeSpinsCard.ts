@@ -5,33 +5,22 @@
  * золотым градиентом, что и на экране крупного выигрыша, и разрядов молний.
  */
 
-import { Container, FillGradient, Graphics, Text, TextStyle } from 'pixi.js';
+import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 
 import { DESIGN, FIELD } from '@/config/layout.config';
 import { easeOutBack, easeOutCubic } from '@/game/core/Easing';
 import { tweens } from '@/game/core/Tween';
 import { formatMoney } from '@/utils/format';
-import type { ViewportInfo } from '@/game/core/Layout';
+import { visibleRect, type ViewportInfo } from '@/game/core/Layout';
+import { DISPLAY_FONT, GOLD_FILL } from '@/game/core/textStyles';
 import type { LightningLayer } from '@/game/fx/LightningFx';
-
-const goldFill = new FillGradient({
-  type: 'linear',
-  start: { x: 0, y: 0 },
-  end: { x: 0, y: 1 },
-  colorStops: [
-    { offset: 0, color: '#fffbe0' },
-    { offset: 0.4, color: '#ffd035' },
-    { offset: 0.75, color: '#f59a12' },
-    { offset: 1, color: '#c96a05' },
-  ],
-});
 
 function titleStyle(size: number): TextStyle {
   return new TextStyle({
-    fontFamily: 'Arial Black, Arial, sans-serif',
+    fontFamily: DISPLAY_FONT,
     fontSize: size,
     fontWeight: '900',
-    fill: goldFill,
+    fill: GOLD_FILL,
     stroke: { color: 0x2a1602, width: 13, join: 'round' },
     dropShadow: { color: 0x000000, alpha: 0.6, blur: 10, distance: 6, angle: Math.PI / 2 },
     letterSpacing: 3,
@@ -64,16 +53,8 @@ export class FreeSpinsCard extends Container {
   }
 
   resize(viewport: ViewportInfo): void {
-    const { worldWidth, worldHeight } = viewport;
-    this.veil
-      .clear()
-      .rect(
-        DESIGN.width / 2 - worldWidth / 2,
-        DESIGN.height / 2 - worldHeight / 2,
-        worldWidth,
-        worldHeight,
-      )
-      .fill({ color: 0x03060f });
+    const { x, y, width, height } = visibleRect(viewport);
+    this.veil.clear().rect(x, y, width, height).fill({ color: 0x03060f });
   }
 
   /** Вход в бонус — только количество спинов, без пояснений. */
@@ -126,17 +107,14 @@ export class FreeSpinsCard extends Container {
     );
 
     await Promise.all([
-      tweens.animate(
-        {
-          duration: 460 * factor,
-          ease: easeOutBack(2.4),
-          onUpdate: (t) => {
-            this.headline.alpha = Math.min(t * 2, 1);
-            this.headline.scale.set(0.5 + t * 0.5);
-          },
+      tweens.animate({
+        duration: 460 * factor,
+        ease: easeOutBack(2.4),
+        onUpdate: (t) => {
+          this.headline.alpha = Math.min(t * 2, 1);
+          this.headline.scale.set(0.5 + t * 0.5);
         },
-        this.headline,
-      ),
+      }),
       tweens.to(this.subline, { alpha: 1 }, { duration: 520 * factor }),
     ]);
 

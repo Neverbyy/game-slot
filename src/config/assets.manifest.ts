@@ -21,6 +21,13 @@ import gemHeart from '@/assets/img/gem_heart.png';
 import gemSpade from '@/assets/img/gem_spade.png';
 import gemStar from '@/assets/img/gem_star.png';
 import helmetHoplite from '@/assets/img/helmet_hoplite.png';
+import bolt1 from '@/assets/img/lightning/lightning_1.png';
+import bolt2 from '@/assets/img/lightning/lightning_2.png';
+import bolt3 from '@/assets/img/lightning/lightning_3.png';
+import bolt4 from '@/assets/img/lightning/lightning_4.png';
+import boltSingle1 from '@/assets/img/lightning/lightning_single_1.png';
+import boltSingle2 from '@/assets/img/lightning/lightning_single_2.png';
+import lightningPike from '@/assets/img/lightning_pike.png';
 import logo from '@/assets/img/logo.png';
 import medallionStar from '@/assets/img/medallion_star.png';
 import wildZeus from '@/assets/img/wild_zeus.png';
@@ -48,11 +55,19 @@ export const SYMBOL_TEXTURES: Record<SymbolId, string> = {
 export const SCENE_TEXTURES = {
   background,
   logo,
+  lightning_pike: lightningPike,
   zeus,
   banner_big: bannerBig,
   banner_mega: bannerMega,
   banner_super: bannerSuper,
   banner_epic: bannerEpic,
+  // Кадры удара молнии (фон вырезан скриптом scripts/key-lightning.ps1).
+  bolt_1: bolt1,
+  bolt_2: bolt2,
+  bolt_3: bolt3,
+  bolt_4: bolt4,
+  bolt_single_1: boltSingle1,
+  bolt_single_2: boltSingle2,
 } as const;
 
 export type SceneTextureId = keyof typeof SCENE_TEXTURES;

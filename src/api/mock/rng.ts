@@ -6,6 +6,8 @@
  * На проде числа генерирует сервер, это чисто инструмент разработки.
  */
 
+import { debugParam } from '@/config/debug.config';
+
 export class Rng {
   private state: number;
 
@@ -60,8 +62,7 @@ export class Rng {
 }
 
 function readSeedFromUrl(): number | undefined {
-  if (typeof window === 'undefined') return undefined;
-  const raw = new URLSearchParams(window.location.search).get('seed');
+  const raw = debugParam('seed');
   if (!raw) return undefined;
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed >>> 0 : undefined;

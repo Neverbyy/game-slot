@@ -33,7 +33,6 @@ class Tween {
   constructor(
     private readonly options: TweenOptions,
     private readonly resolve: () => void,
-    readonly owner: object | null,
   ) {}
 
   get isFinished(): boolean {
@@ -53,16 +52,11 @@ class Tween {
 
     this.options.onUpdate?.(ease(raw));
 
-    if (raw >= 1) this.finish();
-  }
-
-  /** Досрочно завершить, применив конечное состояние. */
-  finish(): void {
-    if (this.finished) return;
-    this.finished = true;
-    this.options.onUpdate?.(1);
-    this.options.onComplete?.();
-    this.resolve();
+    if (raw >= 1) {
+      this.finished = true;
+      this.options.onComplete?.();
+      this.resolve();
+    }
   }
 
   /** Отменить без применения конечного состояния. */
@@ -77,9 +71,9 @@ export class TweenManager {
   private tweens: Tween[] = [];
 
   /** Произвольная анимация по прогрессу. */
-  animate(options: TweenOptions, owner: object | null = null): Promise<void> {
+  animate(options: TweenOptions): Promise<void> {
     return new Promise<void>((resolve) => {
-      this.tweens.push(new Tween(options, resolve, owner));
+      this.tweens.push(new Tween(options, resolve));
     });
   }
 
@@ -94,21 +88,18 @@ export class TweenManager {
     const keys = Object.keys(values);
     const from = new Map<string, number>();
 
-    return this.animate(
-      {
-        ...options,
-        onUpdate: (progress) => {
-          for (const key of keys) {
-            // Стартовые значения берём в первом кадре — после возможной задержки.
-            if (!from.has(key)) from.set(key, mutable[key] as number);
-            const start = from.get(key) as number;
-            const end = values[key] as number;
-            mutable[key] = start + (end - start) * progress;
-          }
-        },
+    return this.animate({
+      ...options,
+      onUpdate: (progress) => {
+        for (const key of keys) {
+          // Стартовые значения берём в первом кадре — после возможной задержки.
+          if (!from.has(key)) from.set(key, mutable[key] as number);
+          const start = from.get(key) as number;
+          const end = values[key] as number;
+          mutable[key] = start + (end - start) * progress;
+        }
       },
-      target,
-    );
+    });
   }
 
   delay(ms: number): Promise<void> {
@@ -123,19 +114,6 @@ export class TweenManager {
     if (this.tweens.some((tween) => tween.isFinished)) {
       this.tweens = this.tweens.filter((tween) => !tween.isFinished);
     }
-  }
-
-  /** Досрочно завершить все анимации объекта. */
-  finishOf(owner: object): void {
-    for (const tween of this.tweens) {
-      if (tween.owner === owner) tween.finish();
-    }
-  }
-
-  /** Быстрая перемотка всего в конец — «пропустить анимацию». */
-  finishAll(): void {
-    for (const tween of [...this.tweens]) tween.finish();
-    this.tweens = [];
   }
 
   /** Сброс без применения конечных состояний (уничтожение сцены). */

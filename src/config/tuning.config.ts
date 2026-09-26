@@ -6,9 +6,11 @@
  * быстро проверить фриспины и все четыре баннера крупного выигрыша. RTP в этом
  * профиле заведомо выше 100% — так и задумано, играть на нём нельзя.
  *
- * Профиль выбирается так: `?tuning=` в URL → переменная окружения
- * `VITE_TUNING` → `balanced`.
+ * Профиль выбирается так: `?tuning=` в URL (только в отладке) → переменная
+ * окружения `VITE_TUNING` → `balanced`.
  */
+
+import { debugParam } from './debug.config';
 
 export type TuningProfile = 'balanced' | 'demo';
 
@@ -33,10 +35,8 @@ export const TUNING: Record<TuningProfile, Tuning> = {
 const PROFILES: readonly TuningProfile[] = ['balanced', 'demo'];
 
 function detectProfile(): TuningProfile {
-  if (typeof window !== 'undefined') {
-    const fromUrl = new URLSearchParams(window.location.search).get('tuning');
-    if (isProfile(fromUrl)) return fromUrl;
-  }
+  const fromUrl = debugParam('tuning');
+  if (isProfile(fromUrl)) return fromUrl;
 
   // `import.meta.env` подставляет Vite; в чистом Node (скрипт симуляции) его нет.
   const fromEnv = import.meta.env?.VITE_TUNING;

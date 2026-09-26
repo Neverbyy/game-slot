@@ -9,10 +9,11 @@ import MenuModal from '@/components/ui/MenuModal.vue';
 import PaytableModal from '@/components/ui/PaytableModal.vue';
 import ToastMessage from '@/components/ui/ToastMessage.vue';
 import { useBootstrap } from '@/composables/useBootstrap';
+import { useButtonHoverSound } from '@/composables/useButtonHoverSound';
+import { DEBUG } from '@/config/debug.config';
 
 const { game, ui } = useBootstrap();
-
-const isDebug = import.meta.env.VITE_DEBUG === 'true';
+useButtonHoverSound();
 
 /** Пробел — спин, как в большинстве слотов. */
 function onKeydown(event: KeyboardEvent): void {
@@ -33,11 +34,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   <div class="app">
     <main class="app__stage">
       <GameCanvas />
-      <DebugOverlay v-if="isDebug" />
+      <!-- Панель висит поверх канваса прямо под барабанами. -->
+      <BottomBar />
+      <DebugOverlay v-if="DEBUG" />
       <ToastMessage />
     </main>
-
-    <BottomBar />
 
     <LoadingOverlay />
     <MenuModal />
@@ -48,15 +49,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 <style scoped lang="scss">
 .app {
   position: relative;
-  display: grid;
-  grid-template-rows: 1fr auto;
   width: 100%;
   height: 100%;
   overflow: hidden;
 
   &__stage {
-    position: relative;
-    min-height: 0;
+    position: absolute;
+    inset: 0;
   }
 }
 </style>

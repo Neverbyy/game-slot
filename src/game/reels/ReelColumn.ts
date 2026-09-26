@@ -14,7 +14,7 @@
 
 import { BlurFilter, Container, Graphics } from 'pixi.js';
 
-import { GRID } from '@/config/layout.config';
+import { CELL_STEP, GRID, cellLocal } from '@/config/layout.config';
 import { TIMINGS } from '@/config/timings.config';
 import { bounceCurve, easeInQuad, easeOutCubic, easeOutQuad } from '@/game/core/Easing';
 import { tweens } from '@/game/core/Tween';
@@ -22,7 +22,7 @@ import { mod } from '@/utils/math';
 import { SymbolView } from './SymbolView';
 import type { Cell } from '@/api/types';
 
-const STEP = GRID.cellHeight + GRID.gap;
+const STEP = CELL_STEP.y;
 const SLOT_COUNT = GRID.rows + 2;
 const COLUMN_HEIGHT = GRID.rows * STEP - GRID.gap;
 
@@ -30,7 +30,7 @@ type ColumnState = 'idle' | 'accelerating' | 'spinning' | 'stopping' | 'bouncing
 
 /** Центр ряда в локальных координатах колонки. */
 export function rowCenterY(row: number): number {
-  return row * STEP + GRID.cellHeight / 2;
+  return cellLocal(0, row).y;
 }
 
 export class ReelColumn extends Container {
@@ -225,9 +225,7 @@ export class ReelColumn extends Container {
    * Подменить символы в указанных рядах с пружинным появлением.
    * Так ставятся и wild-ы после молнии, и монеты после удара кулака.
    */
-  async replaceCells(
-    items: readonly { row: number; cell: Cell; delay?: number }[],
-  ): Promise<void> {
+  async replaceCells(items: readonly { row: number; cell: Cell; delay?: number }[]): Promise<void> {
     await Promise.all(
       items.map(async ({ row, cell, delay = 0 }) => {
         const view = this.rowViews[row];
@@ -243,9 +241,7 @@ export class ReelColumn extends Container {
    * Удар кулака: символ взрывается и тут же на его месте выпрыгивает монета.
    * Задержка у каждой ячейки своя — так получается волна от эпицентра.
    */
-  async smashCells(
-    items: readonly { row: number; cell: Cell; delay?: number }[],
-  ): Promise<void> {
+  async smashCells(items: readonly { row: number; cell: Cell; delay?: number }[]): Promise<void> {
     await Promise.all(
       items.map(async ({ row, cell, delay = 0 }) => {
         const view = this.rowViews[row];

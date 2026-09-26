@@ -9,7 +9,7 @@
  *      (фриспины или автоигра).
  */
 
-import { computed, ref } from 'vue';
+import { computed, onScopeDispose, ref } from 'vue';
 import { defineStore } from 'pinia';
 
 import { api, ApiError } from '@/api';
@@ -33,13 +33,18 @@ export const useGameStore = defineStore('game', () => {
   const betIndex = ref(DEFAULT_BET_INDEX);
   const autoplayLeft = ref(0);
 
-  /** Выигрыш, показываемый в панели TOTAL WIN. */
+  /**
+   * TOTAL WIN — всё выигранное с момента открытия страницы. Между спинами не
+   * обнуляется; живёт только в памяти, поэтому сбрасывается сам, когда
+   * страницу закрыли или перезагрузили.
+   */
+  const sessionWin = ref(0);
+  /** Что показано в панели: итог сессии плюс идущий прямо сейчас спин. */
   const displayWin = ref(0);
   /** Накопленный выигрыш серии фриспинов и сколько спинов уже сыграно. */
   const freeSpinsWin = ref(0);
   const freeSpinsPlayed = ref(0);
   const freeSpins = ref<FreeSpinsState>({ ...EMPTY_FREE_SPINS });
-  const error = ref<string | null>(null);
 
   const betLevels = computed(() => session.config?.betLevels ?? BET_LEVELS);
   const bet = computed(() => betLevels.value[betIndex.value] ?? BET_LEVELS[0] ?? 0);
@@ -58,9 +63,11 @@ export const useGameStore = defineStore('game', () => {
   );
 
   // Счётчик выигрыша во время каскадов обновляется из презентации.
-  gameBus.on('win:progress', (value) => {
-    displayWin.value = freeSpinsWin.value + value;
+  const offWinProgress = gameBus.on('win:progress', (value) => {
+    displayWin.value = sessionWin.value + value;
   });
+  // Стор живёт всё время работы страницы; отписка — для HMR и $dispose().
+  onScopeDispose(offWinProgress);
 
   function setBetIndex(index: number): void {
     if (isSpinning.value || isFreeSpins.value) return;
@@ -70,7 +77,6 @@ export const useGameStore = defineStore('game', () => {
 
   const increaseBet = () => setBetIndex(betIndex.value + 1);
   const decreaseBet = () => setBetIndex(betIndex.value - 1);
-  const setMaxBet = () => setBetIndex(betLevels.value.length - 1);
 
   function setTurbo(value: boolean): void {
     ui.setTurbo(value);
@@ -97,14 +103,14 @@ export const useGameStore = defineStore('game', () => {
     }
 
     status.value = 'spinning';
-    error.value = null;
 
     const currentBet = bet.value;
     if (!free) {
       session.adjustBalance(-currentBet);
+      // Счётчики серии фриспинов — только для итоговой карточки бонуса.
+      // TOTAL WIN здесь не трогаем: он копится всю сессию.
       freeSpinsWin.value = 0;
       freeSpinsPlayed.value = 0;
-      displayWin.value = 0;
     }
 
     gameApp.setBet(currentBet);
@@ -135,11 +141,12 @@ export const useGameStore = defineStore('game', () => {
     totalWin: number,
     wasFree: boolean,
   ): Promise<void> {
+    sessionWin.value += totalWin;
+    displayWin.value = sessionWin.value;
+
     if (wasFree) {
       freeSpinsWin.value += totalWin;
       freeSpinsPlayed.value += 1;
-    } else {
-      displayWin.value = totalWin;
     }
 
     const next = state ?? { ...EMPTY_FREE_SPINS };
@@ -148,12 +155,10 @@ export const useGameStore = defineStore('game', () => {
     freeSpins.value = next;
 
     if (finished) {
-      displayWin.value = freeSpinsWin.value;
       gameBus.emit('freespins:end', { totalWin: freeSpinsWin.value });
       await gameApp.showFreeSpinsOutro(freeSpinsWin.value, freeSpinsPlayed.value, ui.turbo);
       freeSpinsPlayed.value = 0;
     } else if (next.left > 0) {
-      displayWin.value = freeSpinsWin.value;
       gameBus.emit('freespins:update', next);
     }
   }
@@ -169,7 +174,6 @@ export const useGameStore = defineStore('game', () => {
           ? 'Недостаточно средств'
           : 'Ошибка спина, попробуйте ещё раз';
 
-    error.value = message;
     ui.showToast(message);
     console.error('[spin]', e);
   }
@@ -200,7 +204,6 @@ export const useGameStore = defineStore('game', () => {
     autoplayLeft,
     displayWin,
     freeSpins,
-    error,
     mode,
     multiplier,
     isSpinning,
@@ -210,7 +213,6 @@ export const useGameStore = defineStore('game', () => {
     setBetIndex,
     increaseBet,
     decreaseBet,
-    setMaxBet,
     setTurbo,
     startAutoplay,
     stopAutoplay,

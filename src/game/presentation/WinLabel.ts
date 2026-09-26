@@ -2,11 +2,13 @@
 
 import { Container, FillGradient, Text, TextStyle } from 'pixi.js';
 
-import { FIELD } from '@/config/layout.config';
+import { FIELD, WIN_LABEL_Y } from '@/config/layout.config';
 import { easeOutBack, easeOutQuad } from '@/game/core/Easing';
+import { DISPLAY_FONT } from '@/game/core/textStyles';
 import { tweens } from '@/game/core/Tween';
 import { formatMoney } from '@/utils/format';
 
+/** Своя, чуть более светлая золотая заливка — строка выигрыша мельче счётчика. */
 const goldFill = new FillGradient({
   type: 'linear',
   start: { x: 0, y: 0 },
@@ -28,7 +30,7 @@ export class WinLabel extends Container {
     this.text = new Text({
       text: '',
       style: new TextStyle({
-        fontFamily: 'Arial Black, Arial, sans-serif',
+        fontFamily: DISPLAY_FONT,
         fontSize: 54,
         fontWeight: '900',
         fill: goldFill,
@@ -40,8 +42,9 @@ export class WinLabel extends Container {
     this.text.anchor.set(0.5);
 
     this.addChild(this.text);
+    // Посередине между рамкой барабанов и панелью управления.
     this.x = FIELD.centerX;
-    this.y = FIELD.centerY + FIELD.height / 2 + 66;
+    this.y = WIN_LABEL_Y;
     this.visible = false;
   }
 
@@ -51,28 +54,22 @@ export class WinLabel extends Container {
 
     if (this.visible) {
       // Уже на экране — просто «щёлкаем» масштабом.
-      await tweens.animate(
-        {
-          duration: 220,
-          ease: easeOutQuad,
-          onUpdate: (t) => this.scale.set(1 + Math.sin(t * Math.PI) * 0.18),
-        },
-        this,
-      );
+      await tweens.animate({
+        duration: 220,
+        ease: easeOutQuad,
+        onUpdate: (t) => this.scale.set(1 + Math.sin(t * Math.PI) * 0.18),
+      });
       this.scale.set(1);
       return;
     }
 
     this.visible = true;
     this.alpha = 1;
-    await tweens.animate(
-      {
-        duration: 260,
-        ease: easeOutBack(2),
-        onUpdate: (t) => this.scale.set(0.4 + t * 0.6),
-      },
-      this,
-    );
+    await tweens.animate({
+      duration: 260,
+      ease: easeOutBack(2),
+      onUpdate: (t) => this.scale.set(0.4 + t * 0.6),
+    });
     this.scale.set(1);
   }
 

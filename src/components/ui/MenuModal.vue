@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { DEBUG } from '@/config/debug.config';
 import { useGameStore } from '@/stores/game.store';
 import { useSessionStore } from '@/stores/session.store';
 import { useUiStore } from '@/stores/ui.store';
@@ -47,10 +48,10 @@ const session = useSessionStore();
           </div>
         </dl>
 
-        <p class="drawer__note">
+        <p v-if="DEBUG" class="drawer__note">
           Демо-режим: спины считает локальный мок. Отладка сценариев —
-          <code>?force=bigwin|freespins|lightning|coins</code>, фиксированный ГПСЧ —
-          <code>?seed=123</code>.
+          <code>?force=bigwin|freespins|lightning|slam</code>, фиксированный ГПСЧ —
+          <code>?seed=123</code>, профиль частот — <code>?tuning=demo</code>.
         </p>
       </aside>
     </div>
@@ -141,15 +142,5 @@ const session = useSessionStore();
       font-size: 11px;
     }
   }
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 </style>

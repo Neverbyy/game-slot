@@ -1,11 +1,12 @@
 /** Один символ в ячейке: спрайт, свечение победы и номинал для монет. */
 
-import { BlurFilter, Container, FillGradient, Sprite, Text, TextStyle } from 'pixi.js';
+import { BlurFilter, Container, Sprite, Text, TextStyle, type Texture } from 'pixi.js';
 
 import { GRID } from '@/config/layout.config';
 import { TIMINGS } from '@/config/timings.config';
 import { texture } from '@/game/core/AssetLoader';
 import { easeInBack, easeOutBack, easeOutQuad } from '@/game/core/Easing';
+import { DISPLAY_FONT, GOLD_FILL } from '@/game/core/textStyles';
 import { tweens } from '@/game/core/Tween';
 import { formatCoin } from '@/utils/format';
 import type { Cell } from '@/api/types';
@@ -13,9 +14,23 @@ import type { Cell } from '@/api/types';
 /** Доля ячейки, которую занимает символ. */
 const FIT = 0.86;
 
-/** Номинал обычной монеты — серебристые цифры по центру. */
+/** Масштаб, при котором текстура вписывается в ячейку. */
+export function symbolFit(tex: Texture): number {
+  return Math.min(
+    (GRID.cellWidth * FIT) / (tex.width || 1),
+    (GRID.cellHeight * FIT) / (tex.height || 1),
+  );
+}
+
+/**
+ * Размытие свечения — одно на все символы: параметры у всех одинаковые,
+ * а фильтр на каждый из 42 видов обходился бы в лишние проходы рендера.
+ */
+const GLOW_BLUR = new BlurFilter({ strength: 10, quality: 2 });
+
+/** Номинал серебряной монеты. */
 export const COIN_VALUE_STYLE = new TextStyle({
-  fontFamily: 'Arial Black, Arial, sans-serif',
+  fontFamily: DISPLAY_FONT,
   fontSize: 52,
   fontWeight: '900',
   fill: 0xf4f8ff,
@@ -24,38 +39,36 @@ export const COIN_VALUE_STYLE = new TextStyle({
   align: 'center',
 });
 
-/**
- * Сумма на монете-коллекторе: крупные золотые цифры. Они шире монеты и
- * перекрывают запечённую в текстуре «25», поэтому отдельный ассет не нужен.
- */
-export const COLLECTOR_VALUE_STYLE = new TextStyle({
-  fontFamily: 'Arial Black, Arial, sans-serif',
-  fontSize: 62,
+/** Номинал золотой монеты — тот же размер, но золотом. */
+export const GOLD_VALUE_STYLE = new TextStyle({
+  fontFamily: DISPLAY_FONT,
+  fontSize: 52,
   fontWeight: '900',
-  fill: new FillGradient({
-    type: 'linear',
-    start: { x: 0, y: 0 },
-    end: { x: 0, y: 1 },
-    colorStops: [
-      { offset: 0, color: '#fffbe0' },
-      { offset: 0.4, color: '#ffd035' },
-      { offset: 0.75, color: '#f59a12' },
-      { offset: 1, color: '#c96a05' },
-    ],
-  }),
-  stroke: { color: 0x2a1602, width: 10, join: 'round' },
-  dropShadow: { color: 0x000000, alpha: 0.55, blur: 6, distance: 4, angle: Math.PI / 2 },
+  fill: GOLD_FILL,
+  stroke: { color: 0x2a1602, width: 9, join: 'round' },
+  dropShadow: { color: 0x000000, alpha: 0.5, blur: 5, distance: 3, angle: Math.PI / 2 },
   align: 'center',
 });
 
-export type ValueVariant = 'coin' | 'collector';
+export type ValueVariant = 'silver' | 'gold' | 'collector';
+
+/** Коллектор пишется тем же кеглем, что и остальные монеты. */
+const VALUE_STYLES: Record<ValueVariant, TextStyle> = {
+  silver: COIN_VALUE_STYLE,
+  gold: GOLD_VALUE_STYLE,
+  collector: GOLD_VALUE_STYLE,
+};
+
+/** Каким стилем подписывать номинал этой монеты. */
+export function coinValueVariant(symbol: string): ValueVariant {
+  return symbol === 'coin_gold' ? 'gold' : 'silver';
+}
 
 export class SymbolView extends Container {
   private readonly sprite = new Sprite();
   private readonly glow = new Sprite();
   private readonly value = new Text({ text: '', style: COIN_VALUE_STYLE });
 
-  private cell: Cell | null = null;
   private winning = false;
   private elapsed = 0;
 
@@ -66,8 +79,8 @@ export class SymbolView extends Container {
     this.sprite.anchor.set(0.5);
     this.glow.anchor.set(0.5);
     this.glow.blendMode = 'add';
-    this.glow.alpha = 0;
-    this.glow.filters = [new BlurFilter({ strength: 10, quality: 2 })];
+    this.glow.filters = [GLOW_BLUR];
+    this.setGlow(0);
 
     this.value.anchor.set(0.5);
     this.value.visible = false;
@@ -75,17 +88,7 @@ export class SymbolView extends Container {
     this.addChild(this.glow, this.sprite, this.value);
   }
 
-  get symbolId(): string | null {
-    return this.cell?.symbol ?? null;
-  }
-
-  get currentCell(): Cell | null {
-    return this.cell;
-  }
-
   setCell(cell: Cell | null): void {
-    this.cell = cell;
-
     if (!cell) {
       this.visible = false;
       return;
@@ -96,25 +99,24 @@ export class SymbolView extends Container {
     this.sprite.texture = tex;
     this.glow.texture = tex;
 
-    const fit = Math.min(
-      (GRID.cellWidth * FIT) / (tex.width || 1),
-      (GRID.cellHeight * FIT) / (tex.height || 1),
-    );
+    const fit = symbolFit(tex);
     this.sprite.scale.set(fit);
     this.glow.scale.set(fit * 1.08);
 
-    // Номинал пишем только на серебряной монете: на золотой «25» уже в текстуре.
-    this.setValue(cell.symbol === 'coin_silver' ? (cell.value ?? null) : null);
+    // Номинал подписываем на любой монете: в текстурах чисел нет.
+    const isCoin = cell.symbol === 'coin_silver' || cell.symbol === 'coin_gold';
+    this.setValue(isCoin ? (cell.value ?? null) : null, coinValueVariant(cell.symbol));
   }
 
   /** Показать сумму на монете; `null` — убрать. */
-  setValue(value: number | null, variant: ValueVariant = 'coin'): void {
+  setValue(value: number | null, variant: ValueVariant = 'silver'): void {
     if (value === null) {
       this.value.visible = false;
       return;
     }
 
-    this.value.style = variant === 'collector' ? COLLECTOR_VALUE_STYLE : COIN_VALUE_STYLE;
+    this.value.style = VALUE_STYLES[variant];
+    this.value.alpha = 1;
     this.value.text = formatCoin(value);
     this.value.visible = true;
     this.value.scale.set(1);
@@ -124,16 +126,21 @@ export class SymbolView extends Container {
     this.value.visible = false;
   }
 
+  /** Плавно убрать номинал — сумма на коллекторе, когда её забрал экран выигрыша. */
+  async fadeOutValue(duration: number): Promise<void> {
+    if (!this.value.visible) return;
+    await tweens.to(this.value, { alpha: 0 }, { duration });
+    this.value.visible = false;
+    this.value.alpha = 1;
+  }
+
   /** Толчок суммы на коллекторе, когда прилетела очередная цифра. */
   async punchValue(): Promise<void> {
-    await tweens.animate(
-      {
-        duration: 200,
-        ease: easeOutQuad,
-        onUpdate: (t) => this.value.scale.set(1 + Math.sin(t * Math.PI) * 0.22),
-      },
-      this.value,
-    );
+    await tweens.animate({
+      duration: 200,
+      ease: easeOutQuad,
+      onUpdate: (t) => this.value.scale.set(1 + Math.sin(t * Math.PI) * 0.22),
+    });
     this.value.scale.set(1);
   }
 
@@ -142,7 +149,7 @@ export class SymbolView extends Container {
     if (!this.winning) return;
     this.elapsed += dt;
     const pulse = 0.5 + Math.sin(this.elapsed / 180) * 0.5;
-    this.glow.alpha = 0.45 + pulse * 0.55;
+    this.setGlow(0.45 + pulse * 0.55);
     const scale = 1 + pulse * 0.06;
     this.scale.set(scale);
   }
@@ -153,7 +160,7 @@ export class SymbolView extends Container {
     this.elapsed = 0;
 
     if (!active) {
-      this.glow.alpha = 0;
+      this.setGlow(0);
       this.scale.set(1);
     }
   }
@@ -169,54 +176,72 @@ export class SymbolView extends Container {
    */
   async explode(delay = 0): Promise<void> {
     this.setWinning(false);
-    await tweens.animate(
-      {
-        duration: TIMINGS.symbolExplodeMs,
-        delay,
-        ease: easeInBack,
-        onUpdate: (t) => {
-          this.scale.set(1 + t * 0.55);
-          this.alpha = 1 - t;
-        },
+    await tweens.animate({
+      duration: TIMINGS.symbolExplodeMs,
+      delay,
+      ease: easeInBack,
+      onUpdate: (t) => {
+        this.scale.set(1 + t * 0.55);
+        this.alpha = 1 - t;
       },
-      this,
-    );
+    });
+  }
+
+  /**
+   * «Приземление» особого символа (скаттера): иконка пружинно подпрыгивает
+   * и вспыхивает свечением, которое затем плавно гаснет.
+   */
+  async celebrate(): Promise<void> {
+    if (this.winning) return;
+
+    await tweens.animate({
+      duration: 700,
+      onUpdate: (t) => {
+        // Быстрый подскок в первой трети, затем пружинный возврат.
+        const bump = t < 0.3 ? easeOutQuad(t / 0.3) : 1 - easeOutBack(2)((t - 0.3) / 0.7);
+        this.scale.set(1 + bump * 0.22);
+        this.setGlow(t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85);
+      },
+    });
+
+    this.scale.set(1);
+    this.setGlow(0);
   }
 
   /** Пружинное появление — превращение в wild. */
   async pop(): Promise<void> {
     this.alpha = 1;
-    await tweens.animate(
-      {
-        duration: 320,
-        ease: easeOutBack(2.2),
-        onUpdate: (t) => this.scale.set(0.3 + t * 0.7),
-      },
-      this,
-    );
+    await tweens.animate({
+      duration: 320,
+      ease: easeOutBack(2.2),
+      onUpdate: (t) => this.scale.set(0.3 + t * 0.7),
+    });
     this.scale.set(1);
   }
 
   /** Приземление после падения: лёгкое сплющивание. */
   async squash(): Promise<void> {
-    await tweens.animate(
-      {
-        duration: 140,
-        ease: easeOutQuad,
-        onUpdate: (t) => {
-          const k = Math.sin(t * Math.PI) * 0.12;
-          this.scale.set(1 + k, 1 - k);
-        },
+    await tweens.animate({
+      duration: 140,
+      ease: easeOutQuad,
+      onUpdate: (t) => {
+        const k = Math.sin(t * Math.PI) * 0.12;
+        this.scale.set(1 + k, 1 - k);
       },
-      this,
-    );
+    });
     this.scale.set(1);
+  }
+
+  /** Невидимое свечение не гоняем через размытие. */
+  private setGlow(alpha: number): void {
+    this.glow.alpha = alpha;
+    this.glow.visible = alpha > 0;
   }
 
   reset(): void {
     this.alpha = 1;
     this.scale.set(1);
-    this.glow.alpha = 0;
+    this.setGlow(0);
     this.winning = false;
   }
 }

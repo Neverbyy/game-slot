@@ -26,7 +26,10 @@ export const TIMINGS = {
   lightningBetweenMs: 120,
 
   /** Удар кулака. */
-  slamChargeMs: 620,
+  /** Взмах рук к небу: замах вниз + подъём. */
+  slamChargeMs: 1000,
+  /** Сколько Зевс держит руки наверху, прежде чем метнуть молнию. */
+  slamPeakHoldMs: 260,
   slamShakeMs: 520,
   slamHoldMs: 420,
 
@@ -38,8 +41,8 @@ export const TIMINGS = {
   /** Big Win. */
   bigWinIntroMs: 700,
   /** Базовое время счёта; на каждый пройденный тир добавляется свой отрезок. */
-  bigWinCountBaseMs: 3000,
-  bigWinCountPerTierMs: 2600,
+  bigWinCountBaseMs: 3600,
+  bigWinCountPerTierMs: 3100,
   bigWinHoldMs: 1200,
   bigWinOutroMs: 500,
 

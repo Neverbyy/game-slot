@@ -30,9 +30,7 @@ export function formatMoney(minor: number): string {
 
 /** Номинал на монете: круглые суммы без копеек — «5», а не «5,00». */
 export function formatCoin(minor: number): string {
-  return minor % MINOR_UNITS === 0
-    ? String(Math.round(minor / MINOR_UNITS))
-    : formatAmount(minor);
+  return minor % MINOR_UNITS === 0 ? String(Math.round(minor / MINOR_UNITS)) : formatAmount(minor);
 }
 
 export function toMinor(major: number): number {

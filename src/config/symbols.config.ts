@@ -156,8 +156,6 @@ export const BIG_WIN_TIERS = [
 export type BigWinTierId = (typeof BIG_WIN_TIERS)[number]['id'];
 
 /** Уровни ставок в минорных единицах (центы). */
-export const BET_LEVELS: readonly number[] = [
-  10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10_000,
-];
+export const BET_LEVELS: readonly number[] = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10_000];
 
 export const DEFAULT_BET_INDEX = 3;

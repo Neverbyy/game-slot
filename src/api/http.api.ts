@@ -1,13 +1,7 @@
 /** HTTP-реализация игрового API. Включится, когда появится бэкенд. */
 
 import { request } from './http';
-import type {
-  BalanceResponse,
-  InitResponse,
-  SlotApi,
-  SpinRequest,
-  SpinResponse,
-} from './types';
+import type { BalanceResponse, InitResponse, SlotApi, SpinRequest, SpinResponse } from './types';
 
 export const httpSlotApi: SlotApi = {
   init() {

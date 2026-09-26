@@ -19,10 +19,7 @@ export function useBootstrap() {
   const off: (() => void)[] = [];
 
   onMounted(async () => {
-    off.push(
-      gameBus.on('assets:progress', (value) => ui.setProgress(value)),
-      gameBus.on('error', (e) => ui.showToast(e.message)),
-    );
+    off.push(gameBus.on('assets:progress', (value) => ui.setProgress(value)));
 
     const ready = new Promise<void>((resolve) => {
       if (gameApp.isReady) resolve();

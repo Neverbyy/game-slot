@@ -22,19 +22,17 @@ export function createCellTile(variant: TileVariant, seed = 0): Container {
   const holder = new Container();
   holder.eventMode = 'none';
 
-  const base = new Graphics()
-    .roundRect(0, 0, w, h, 10)
-    .fill(
-      new FillGradient({
-        type: 'linear',
-        start: { x: 0, y: 0 },
-        end: { x: 0, y: 1 },
-        colorStops: [
-          { offset: 0, color: palette.top },
-          { offset: 1, color: palette.bottom },
-        ],
-      }),
-    );
+  const base = new Graphics().roundRect(0, 0, w, h, 10).fill(
+    new FillGradient({
+      type: 'linear',
+      start: { x: 0, y: 0 },
+      end: { x: 0, y: 1 },
+      colorStops: [
+        { offset: 0, color: palette.top },
+        { offset: 1, color: palette.bottom },
+      ],
+    }),
+  );
 
   // «Облака»: несколько мягких пятен, детерминированных по индексу ячейки,
   // чтобы плитки не выглядели одинаковыми штампами.

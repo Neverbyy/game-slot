@@ -3,6 +3,7 @@ import { computed } from 'vue';
 
 import { SYMBOL_TEXTURES } from '@/config/assets.manifest';
 import {
+  FREE_SPINS_AWARD,
   FREE_SPINS_RETRIGGER,
   MIN_CLUSTER,
   PAYTABLE,
@@ -26,6 +27,12 @@ const rows = computed(() =>
 );
 
 const rtp = computed(() => session.config?.rtp);
+
+/** «3 — 10, 4 — 15, …» из таблицы наград, а не текстом. */
+const lastAward = FREE_SPINS_AWARD[FREE_SPINS_AWARD.length - 1];
+const awardsText = FREE_SPINS_AWARD.map((entry) =>
+  entry === lastAward ? ` и больше — ` : ` — `,
+).join(', ');
 </script>
 
 <template>
@@ -38,9 +45,8 @@ const rtp = computed(() => session.config?.rtp);
         </header>
 
         <p class="modal__hint">
-          Выигрыш даёт {{ MIN_CLUSTER }} и более одинаковых символов в любом месте поля.
-          Суммы указаны для текущей ставки {{ formatMoney(game.bet) }} — за 8–9, 10–11 и 12+
-          символов.
+          Выигрыш даёт {{ MIN_CLUSTER }} и более одинаковых символов в любом месте поля. Суммы
+          указаны для текущей ставки {{ formatMoney(game.bet) }} — за 8–9, 10–11 и 12+ символов.
         </p>
 
         <ul class="paytable">
@@ -64,10 +70,9 @@ const rtp = computed(() => session.config?.rtp);
             <li>
               <img :src="SYMBOL_TEXTURES.scatter" alt="scatter" />
               <span>
-                <b>Scatter</b> — 3 штуки на поле дают 10 фриспинов, 4 — 15, 5 — 25, 6 и больше —
-                30. Внутри бонуса 3+ скаттера добавляют ещё {{ FREE_SPINS_RETRIGGER }}. Во
-                фриспинах кулак Зевса прилетает заметно чаще, а каждый удар молнии поднимает
-                общий множитель.
+                <b>Scatter</b> — фриспины за скаттеры на поле: {{ awardsText }}. Внутри бонуса 3+
+                скаттера добавляют ещё {{ FREE_SPINS_RETRIGGER }}. Во фриспинах кулак Зевса
+                прилетает заметно чаще, а каждый удар молнии поднимает общий множитель.
               </span>
             </li>
             <li>
@@ -81,8 +86,8 @@ const rtp = computed(() => session.config?.rtp);
             <li>
               <span class="paytable__tile" />
               <span>
-                <b>Погашенные ячейки</b> — тёмные клетки поля. Символы в них видны, но в
-                выигрышах и в ударе Зевса не участвуют.
+                <b>Погашенные ячейки</b> — тёмные клетки, которые появляются при ударе Зевса. До них
+                удар не дотягивается: символы в них не превращаются в монеты.
               </span>
             </li>
           </ul>
@@ -215,15 +220,5 @@ const rtp = computed(() => session.config?.rtp);
       color: var(--gold);
     }
   }
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 </style>

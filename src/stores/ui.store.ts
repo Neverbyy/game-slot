@@ -3,6 +3,8 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
 
+import { sound } from '@/game/core/SoundManager';
+
 export type ModalName = 'paytable' | 'menu' | null;
 
 const STORAGE_KEY = 'zeus.ui.prefs';
@@ -32,6 +34,8 @@ export const useUiStore = defineStore('ui', () => {
   const soundEnabled = ref(prefs.sound);
   const turbo = ref(prefs.turbo);
 
+  sound.setEnabled(soundEnabled.value);
+
   let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   function persist(): void {
@@ -47,6 +51,7 @@ export const useUiStore = defineStore('ui', () => {
 
   function setSound(value: boolean): void {
     soundEnabled.value = value;
+    sound.setEnabled(value);
     persist();
   }
 

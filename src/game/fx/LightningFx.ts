@@ -134,7 +134,10 @@ export class LightningLayer extends Container {
     const length = randomRange(radius * 0.5, radius);
 
     return this.strike(
-      { x: center.x + Math.cos(angle) * radius * 0.2, y: center.y + Math.sin(angle) * radius * 0.2 },
+      {
+        x: center.x + Math.cos(angle) * radius * 0.2,
+        y: center.y + Math.sin(angle) * radius * 0.2,
+      },
       { x: center.x + Math.cos(angle) * length, y: center.y + Math.sin(angle) * length },
       { life: 200, width: 3, branches: 1, roughness: 0.3, ...options },
     );

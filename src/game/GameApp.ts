@@ -5,7 +5,7 @@
  * дергают методы фасада и слушают `gameBus`, но ничего не знают про Pixi.
  */
 
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Container, Graphics, Texture } from 'pixi.js';
 
 import { DESIGN } from '@/config/layout.config';
 import { TIMINGS } from '@/config/timings.config';
@@ -13,12 +13,14 @@ import { TIMINGS } from '@/config/timings.config';
 // что и мок: он чисто конфигурационный и на результат спина не влияет —
 // итоговую сетку всё равно присылает сервер.
 import { randomCell, randomGrid } from '@/api/mock/engine';
-import { computeViewport, type ViewportInfo } from './core/Layout';
-import { loadAssets } from './core/AssetLoader';
+import { computeViewport, visibleRect, type ViewportInfo } from './core/Layout';
+import { loadAssets, texture } from './core/AssetLoader';
+import { sound } from './core/SoundManager';
 import { flashCurve } from './core/Easing';
 import { tweens } from './core/Tween';
 import { gameBus } from './events';
 import { LightningLayer } from './fx/LightningFx';
+import { createFistCutout } from './fx/FistCutout';
 import { BackgroundLayer } from './layers/BackgroundLayer';
 import { FrameLayer } from './layers/FrameLayer';
 import { LogoLayer } from './layers/LogoLayer';
@@ -28,16 +30,21 @@ import { BigWinOverlay } from './presentation/BigWinOverlay';
 import { FreeSpinsCard } from './presentation/FreeSpinsCard';
 import { ScenarioPlayer } from './presentation/ScenarioPlayer';
 import { WinLabel } from './presentation/WinLabel';
-import type { GameMode, Grid, SpinResponse } from '@/api/types';
+import type { GameMode, SpinResponse } from '@/api/types';
 
 export class GameApp {
   private app: Application | null = null;
   private host: HTMLElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  /**
+   * Номер запуска: если `destroy()` вызвали, пока `init()` ждал загрузки,
+   * недостроенный запуск по нему понимает, что опоздал, и не собирает сцену.
+   */
+  private generation = 0;
 
-  private readonly world = new Container();
-  private readonly flashOverlay = new Graphics();
-
+  // Сцена собирается заново на каждый `init()`: `destroy()` уничтожает её целиком.
+  private world!: Container;
+  private flashOverlay!: Graphics;
   private background!: BackgroundLayer;
   private logo!: LogoLayer;
   private frame!: FrameLayer;
@@ -48,6 +55,8 @@ export class GameApp {
   private bigWin!: BigWinOverlay;
   private freeSpinsCard!: FreeSpinsCard;
   private player!: ScenarioPlayer;
+  /** Вырезка кулака рисуется на canvas — это своя текстура, её надо освобождать. */
+  private fistCutout: Texture | null = null;
 
   private viewport: ViewportInfo = computeViewport(DESIGN.width, DESIGN.height);
   private mode: GameMode = 'base';
@@ -58,12 +67,19 @@ export class GameApp {
     return this.ready;
   }
 
+  /** Текущий масштаб и видимая область — по ним DOM-панель встаёт под барабаны. */
+  get viewportInfo(): ViewportInfo {
+    return this.viewport;
+  }
+
   get pixi(): Application | null {
     return this.app;
   }
 
   async init(host: HTMLElement): Promise<void> {
     if (this.app) return;
+    const generation = ++this.generation;
+    const stale = () => generation !== this.generation;
 
     const app = new Application();
     await app.init({
@@ -75,16 +91,31 @@ export class GameApp {
       resizeTo: host,
     });
 
+    if (stale()) {
+      app.destroy(true);
+      return;
+    }
+
     this.app = app;
     this.host = host;
     host.appendChild(app.canvas);
 
+    // Звуки грузим параллельно с картинками, но не ждём: если не успели
+    // или не загрузились — игра просто идёт без них.
+    void sound.load();
     await loadAssets((progress) => gameBus.emit('assets:progress', progress));
+
+    // Пока грузились картинки, игру уже уничтожили — `destroy()` всё убрал.
+    if (stale()) return;
 
     this.buildScene();
 
     app.stage.addChild(this.world);
     app.ticker.add((ticker) => this.update(ticker.deltaMS));
+
+    // Кулак без диска и кольца — для «вылезания» из рамки. Считается один раз.
+    this.fistCutout = createFistCutout(texture('extra_slam'));
+    this.reels.setFistCutout(this.fistCutout);
 
     this.resizeObserver = new ResizeObserver(() => this.handleResize());
     this.resizeObserver.observe(host);
@@ -95,12 +126,18 @@ export class GameApp {
   }
 
   destroy(): void {
+    this.generation++;
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     tweens.cancelAll();
+    sound.dispose();
 
+    // Общие текстуры из Assets не трогаем — только сцену и свою вырезку.
     this.app?.destroy(true, { children: true, texture: false });
     this.app = null;
+    if (this.fistCutout && this.fistCutout !== Texture.EMPTY) this.fistCutout.destroy(true);
+    this.fistCutout = null;
+
     this.host = null;
     this.ready = false;
   }
@@ -120,10 +157,6 @@ export class GameApp {
     this.mode = mode;
     this.reels.setMode(mode);
     await this.background.setMode(mode);
-  }
-
-  setGrid(grid: Grid): void {
-    this.reels?.setGrid(grid);
   }
 
   /** Запустить вращение до прихода ответа сервера. */
@@ -170,27 +203,25 @@ export class GameApp {
 
   /** Тряска камеры: дёргаем весь мир, кроме оверлеев поверх него. */
   shake(strength: number, duration: number): Promise<void> {
-    const baseX = this.world.x;
-    const baseY = this.world.y;
-
+    // Точку покоя считаем каждый кадр заново: если окно растянули во время
+    // тряски, мир не должен вернуться на старое место.
     return tweens
       .animate({
         duration,
         onUpdate: (t) => {
           const decay = (1 - t) * strength * this.viewport.scale;
-          this.world.x = baseX + (Math.random() * 2 - 1) * decay;
-          this.world.y = baseY + (Math.random() * 2 - 1) * decay;
+          this.placeWorld((Math.random() * 2 - 1) * decay, (Math.random() * 2 - 1) * decay);
         },
       })
-      .then(() => {
-        this.world.x = baseX;
-        this.world.y = baseY;
-      });
+      .then(() => this.placeWorld());
   }
 
   /* --- Внутреннее --- */
 
   private buildScene(): void {
+    this.world = new Container();
+    this.flashOverlay = new Graphics();
+
     this.background = new BackgroundLayer();
     this.frame = new FrameLayer();
     this.lightning = new LightningLayer();
@@ -250,25 +281,23 @@ export class GameApp {
     this.viewport = computeViewport(clientWidth, clientHeight);
 
     this.world.scale.set(this.viewport.scale);
-    this.world.x = (clientWidth - DESIGN.width * this.viewport.scale) / 2;
-    this.world.y = (clientHeight - DESIGN.height * this.viewport.scale) / 2;
+    this.placeWorld();
 
     this.background.resize(this.viewport);
     this.bigWin.resize(this.viewport);
     this.freeSpinsCard.resize(this.viewport);
 
-    const { worldWidth, worldHeight } = this.viewport;
-    this.flashOverlay
-      .clear()
-      .rect(
-        DESIGN.width / 2 - worldWidth / 2,
-        DESIGN.height / 2 - worldHeight / 2,
-        worldWidth,
-        worldHeight,
-      )
-      .fill({ color: 0xffffff });
+    const { x, y, width, height } = visibleRect(this.viewport);
+    this.flashOverlay.clear().rect(x, y, width, height).fill({ color: 0xffffff });
 
     gameBus.emit('game:resize', this.viewport);
+  }
+
+  /** Мир по центру канваса; смещение — для тряски камеры. */
+  private placeWorld(offsetX = 0, offsetY = 0): void {
+    const { screenWidth, screenHeight, scale } = this.viewport;
+    this.world.x = (screenWidth - DESIGN.width * scale) / 2 + offsetX;
+    this.world.y = (screenHeight - DESIGN.height * scale) / 2 + offsetY;
   }
 }
 

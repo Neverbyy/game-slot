@@ -14,7 +14,7 @@ const ui = useUiStore();
 .toast {
   position: absolute;
   left: 50%;
-  bottom: 28px;
+  top: 14%;
   z-index: 60;
   transform: translateX(-50%);
   padding: 10px 20px;

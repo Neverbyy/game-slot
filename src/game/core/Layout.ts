@@ -19,6 +19,23 @@ export interface ViewportInfo {
   worldHeight: number;
 }
 
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Видимая область в дизайн-координатах — под вуали и вспышки на весь экран. */
+export function visibleRect({ worldWidth, worldHeight }: ViewportInfo): Rect {
+  return {
+    x: DESIGN.width / 2 - worldWidth / 2,
+    y: DESIGN.height / 2 - worldHeight / 2,
+    width: worldWidth,
+    height: worldHeight,
+  };
+}
+
 export function computeViewport(screenWidth: number, screenHeight: number): ViewportInfo {
   const width = Math.max(screenWidth, 1);
   const height = Math.max(screenHeight, 1);

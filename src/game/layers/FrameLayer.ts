@@ -1,12 +1,19 @@
 /**
- * Рамка игрового поля с боковыми трезубцами — процедурная замена текстуры.
- * Геометрия повторяет пропорции оригинала: широкий кремовый бортик,
- * тёмная подложка поля и серебристые трезубцы по бокам.
+ * Рамка игрового поля с боковыми трезубцами.
+ * Рамка процедурная: широкий кремовый бортик и тёмная подложка поля.
+ * Трезубцы — картинка `lightning_pike.png`, стоят по бокам за рамкой.
  */
 
-import { Container, FillGradient, Graphics } from 'pixi.js';
+import { Container, FillGradient, Graphics, Sprite } from 'pixi.js';
 
 import { FIELD, FRAME_PADDING } from '@/config/layout.config';
+import { texture } from '@/game/core/AssetLoader';
+
+/** Высота трезубца относительно высоты поля. */
+const TRIDENT_HEIGHT = 0.92;
+
+/** На сколько центр трезубца отстоит от внешнего края рамки. */
+const TRIDENT_OFFSET = 88;
 
 export class FrameLayer extends Container {
   constructor() {
@@ -17,20 +24,18 @@ export class FrameLayer extends Container {
     const h = FIELD.height;
     const pad = FRAME_PADDING;
 
-    const bezel = new Graphics()
-      .roundRect(-pad, -pad, w + pad * 2, h + pad * 2, 20)
-      .fill(
-        new FillGradient({
-          type: 'linear',
-          start: { x: 0, y: 0 },
-          end: { x: 0, y: 1 },
-          colorStops: [
-            { offset: 0, color: '#fdfaf0' },
-            { offset: 0.5, color: '#efe6d2' },
-            { offset: 1, color: '#cfc0a2' },
-          ],
-        }),
-      );
+    const bezel = new Graphics().roundRect(-pad, -pad, w + pad * 2, h + pad * 2, 20).fill(
+      new FillGradient({
+        type: 'linear',
+        start: { x: 0, y: 0 },
+        end: { x: 0, y: 1 },
+        colorStops: [
+          { offset: 0, color: '#fdfaf0' },
+          { offset: 0.5, color: '#efe6d2' },
+          { offset: 1, color: '#cfc0a2' },
+        ],
+      }),
+    );
 
     const innerShadow = new Graphics()
       .roundRect(-6, -6, w + 12, h + 12, 12)
@@ -42,12 +47,13 @@ export class FrameLayer extends Container {
       .roundRect(-pad + 5, -pad + 5, w + pad * 2 - 10, h + pad * 2 - 10, 16)
       .stroke({ width: 2, color: 0xffffff, alpha: 0.6 });
 
-    this.addChild(bezel, highlight, innerShadow);
-
-    const tridentHeight = h * 0.78;
+    // Трезубцы идут первыми, чтобы рамка перекрывала их, как в оригинале.
     this.addChild(
-      trident(-pad - 54, h / 2 + tridentHeight / 2, tridentHeight, 1),
-      trident(w + pad + 54, h / 2 + tridentHeight / 2, tridentHeight, -1),
+      trident(-pad - TRIDENT_OFFSET, h / 2, h * TRIDENT_HEIGHT),
+      trident(w + pad + TRIDENT_OFFSET, h / 2, h * TRIDENT_HEIGHT),
+      bezel,
+      highlight,
+      innerShadow,
     );
 
     // Рамка рисуется от левого верхнего угла поля.
@@ -56,50 +62,11 @@ export class FrameLayer extends Container {
   }
 }
 
-/** Стилизованный трезубец остриями вверх. */
-function trident(x: number, y: number, height: number, flip: 1 | -1): Graphics {
-  const g = new Graphics();
-  const shaftWidth = height * 0.022;
-  const barY = -height * 0.52;
-  const barHalf = height * 0.1;
-  const tipY = -height;
-
-  // Древко.
-  g.roundRect(-shaftWidth, barY, shaftWidth * 2, -barY, shaftWidth);
-
-  // Перекладина.
-  g.roundRect(-barHalf, barY - shaftWidth, barHalf * 2, shaftWidth * 2, shaftWidth);
-
-  // Центральный зубец.
-  g.moveTo(-shaftWidth * 1.4, barY)
-    .lineTo(0, tipY)
-    .lineTo(shaftWidth * 1.4, barY)
-    .closePath();
-
-  // Боковые зубцы — дуги от концов перекладины вверх.
-  for (const side of [-1, 1]) {
-    g.moveTo(side * barHalf, barY);
-    g.quadraticCurveTo(side * barHalf * 1.25, barY * 1.45, side * barHalf * 0.55, tipY * 0.92);
-    g.lineTo(side * barHalf * 0.34, tipY * 0.9);
-    g.quadraticCurveTo(side * barHalf * 0.95, barY * 1.4, side * (barHalf - shaftWidth * 2), barY);
-    g.closePath();
-  }
-
-  g.fill(
-    new FillGradient({
-      type: 'linear',
-      start: { x: 0, y: 0 },
-      end: { x: 1, y: 0 },
-      colorStops: [
-        { offset: 0, color: '#ffffff' },
-        { offset: 0.45, color: '#e3e8f0' },
-        { offset: 1, color: '#a9b4c6' },
-      ],
-    }),
-  );
-
-  g.x = x;
-  g.y = y;
-  g.scale.x = flip;
-  return g;
+/** Трезубец с центром в (x, y). Картинка почти во всю свою высоту. */
+function trident(x: number, y: number, height: number): Sprite {
+  const sprite = new Sprite(texture('lightning_pike'));
+  sprite.anchor.set(0.5);
+  sprite.scale.set(height / (sprite.texture.height || 1));
+  sprite.position.set(x, y);
+  return sprite;
 }
