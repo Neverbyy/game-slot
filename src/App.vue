@@ -8,12 +8,15 @@ import LoadingOverlay from '@/components/ui/LoadingOverlay.vue';
 import MenuModal from '@/components/ui/MenuModal.vue';
 import PaytableModal from '@/components/ui/PaytableModal.vue';
 import ToastMessage from '@/components/ui/ToastMessage.vue';
+import TouchPanel from '@/components/ui/TouchPanel.vue';
 import { useBootstrap } from '@/composables/useBootstrap';
 import { useButtonHoverSound } from '@/composables/useButtonHoverSound';
+import { useGameViewport } from '@/composables/useGameViewport';
 import { DEBUG_PANEL } from '@/config/debug.config';
 
 const { game, ui } = useBootstrap();
 useButtonHoverSound();
+const { panel } = useGameViewport();
 
 /** Пробел — спин, как в большинстве слотов. */
 function onKeydown(event: KeyboardEvent): void {
@@ -34,8 +37,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   <div class="app">
     <main class="app__stage">
       <GameCanvas />
-      <!-- Панель висит поверх канваса прямо под барабанами. -->
-      <BottomBar />
+      <!-- На ПК панель висит под барабанами, на телефонах — прибита к низу экрана. -->
+      <BottomBar v-if="panel === 'docked'" />
+      <TouchPanel v-else />
       <DebugOverlay v-if="DEBUG_PANEL" />
       <ToastMessage />
     </main>

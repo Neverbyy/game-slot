@@ -2,7 +2,7 @@
 
 import { BlurFilter, Container, Sprite } from 'pixi.js';
 
-import { LOGO } from '@/config/layout.config';
+import type { SceneLayout } from '@/config/layout.config';
 import { texture } from '@/game/core/AssetLoader';
 
 export class LogoLayer extends Container {
@@ -14,20 +14,22 @@ export class LogoLayer extends Container {
     super();
     this.eventMode = 'none';
 
-    for (const sprite of [this.glow, this.image]) {
-      sprite.anchor.set(0.5);
-      const scale = LOGO.width / (sprite.texture.width || 1);
-      sprite.scale.set(scale);
-    }
+    this.image.anchor.set(0.5);
+    this.glow.anchor.set(0.5);
 
     this.glow.blendMode = 'add';
     this.glow.alpha = 0.35;
     this.glow.filters = [new BlurFilter({ strength: 14, quality: 2 })];
 
-    this.x = LOGO.centerX;
-    this.y = LOGO.centerY;
-
     this.addChild(this.glow, this.image);
+  }
+
+  applyLayout({ logo }: SceneLayout): void {
+    this.position.set(logo.centerX, logo.centerY);
+    // Масштабируем сами спрайты, а не слой: покачивание задано в дизайн-пикселях.
+    const scale = logo.width / (this.image.texture.width || 1);
+    this.image.scale.set(scale);
+    this.glow.scale.set(scale);
   }
 
   update(dt: number): void {

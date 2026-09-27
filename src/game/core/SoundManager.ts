@@ -231,24 +231,41 @@ class SoundManager {
     );
   }
 
-  /** Первый клик/нажатие снимает запрет браузера на звук и запускает музыку. */
+  /**
+   * Первое действие пользователя снимает запрет браузера на звук и запускает
+   * музыку. Слушаем все события, которые браузер засчитывает как жест: на
+   * сенсорных экранах `pointerdown` таким не считается (только `pointerup`,
+   * `touchend`, `click`), и звук на телефонах иначе не включался. Слушатели
+   * снимаем только когда звук действительно запустился.
+   */
   private unlockOnGesture(ctx: AudioContext): void {
+    const events = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'] as const;
+    const options = { capture: true, passive: true };
+
     const remove = () => {
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('keydown', unlock);
+      for (const name of events) window.removeEventListener(name, unlock, options);
       this.removeUnlock = null;
     };
     const unlock = () => {
-      if (ctx.state === 'suspended') void ctx.resume();
       this.startMusic();
-      remove();
+      if (ctx.state !== 'suspended') {
+        remove();
+        return;
+      }
+      ctx
+        .resume()
+        .then(() => {
+          if (ctx.state === 'running') remove();
+        })
+        .catch(() => {
+          /* жест не засчитан — ждём следующего */
+        });
     };
-    window.addEventListener('pointerdown', unlock);
-    window.addEventListener('keydown', unlock);
+
+    for (const name of events) window.addEventListener(name, unlock, options);
     this.removeUnlock = remove;
   }
 }
-
 export const sound = new SoundManager();
 
 // При горячей замене модуля старый экземпляр иначе продолжил бы играть музыку

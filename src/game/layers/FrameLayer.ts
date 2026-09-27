@@ -6,7 +6,7 @@
 
 import { Container, FillGradient, Graphics, Sprite } from 'pixi.js';
 
-import { FIELD, FRAME_PADDING } from '@/config/layout.config';
+import { FIELD, FRAME_PADDING, type SceneLayout } from '@/config/layout.config';
 import { texture } from '@/game/core/AssetLoader';
 
 /** Высота трезубца относительно высоты поля. */
@@ -16,6 +16,8 @@ const TRIDENT_HEIGHT = 0.92;
 const TRIDENT_OFFSET = 88;
 
 export class FrameLayer extends Container {
+  private readonly tridents: Sprite[];
+
   constructor() {
     super();
     this.eventMode = 'none';
@@ -47,18 +49,20 @@ export class FrameLayer extends Container {
       .roundRect(-pad + 5, -pad + 5, w + pad * 2 - 10, h + pad * 2 - 10, 16)
       .stroke({ width: 2, color: 0xffffff, alpha: 0.6 });
 
-    // Трезубцы идут первыми, чтобы рамка перекрывала их, как в оригинале.
-    this.addChild(
+    this.tridents = [
       trident(-pad - TRIDENT_OFFSET, h / 2, h * TRIDENT_HEIGHT),
       trident(w + pad + TRIDENT_OFFSET, h / 2, h * TRIDENT_HEIGHT),
-      bezel,
-      highlight,
-      innerShadow,
-    );
+    ];
 
+    // Трезубцы идут первыми, чтобы рамка перекрывала их, как в оригинале.
+    this.addChild(...this.tridents, bezel, highlight, innerShadow);
+  }
+
+  applyLayout(layout: SceneLayout): void {
     // Рамка рисуется от левого верхнего угла поля.
-    this.x = FIELD.centerX - w / 2;
-    this.y = FIELD.centerY - h / 2;
+    this.x = layout.field.centerX - FIELD.width / 2;
+    this.y = layout.field.centerY - FIELD.height / 2;
+    for (const sprite of this.tridents) sprite.visible = layout.tridents;
   }
 }
 

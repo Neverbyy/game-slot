@@ -2,7 +2,7 @@
 
 import { Container, FillGradient, Text, TextStyle } from 'pixi.js';
 
-import { FIELD, WIN_LABEL_Y } from '@/config/layout.config';
+import type { SceneLayout } from '@/config/layout.config';
 import { easeOutBack, easeOutQuad } from '@/game/core/Easing';
 import { DISPLAY_FONT } from '@/game/core/textStyles';
 import { tweens } from '@/game/core/Tween';
@@ -42,10 +42,12 @@ export class WinLabel extends Container {
     this.text.anchor.set(0.5);
 
     this.addChild(this.text);
-    // Посередине между рамкой барабанов и панелью управления.
-    this.x = FIELD.centerX;
-    this.y = WIN_LABEL_Y;
     this.visible = false;
+  }
+
+  /** Строка стоит под рамкой барабанов, по центру поля. */
+  applyLayout(layout: SceneLayout): void {
+    this.position.set(layout.field.centerX, layout.winLabelY);
   }
 
   async show(amount: number, multiplier = 1): Promise<void> {

@@ -20,3 +20,7 @@ pnpm-debug.log*
 
 .env.local
 .env.*.local
+
+# Playwright
+test-results/
+playwright-report/

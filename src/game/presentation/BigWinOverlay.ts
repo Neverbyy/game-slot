@@ -9,7 +9,7 @@
 
 import { Container, Graphics, Sprite, Text, TextStyle } from 'pixi.js';
 
-import { DESIGN, FIELD } from '@/config/layout.config';
+import { DESIGN, LANDSCAPE } from '@/config/layout.config';
 import { TIMINGS } from '@/config/timings.config';
 import { BIG_WIN_TIERS, type BigWinTierId } from '@/config/symbols.config';
 import { texture } from '@/game/core/AssetLoader';
@@ -23,13 +23,13 @@ import type { SoundId } from '@/config/sounds.config';
 import { formatAmount } from '@/utils/format';
 import { randomRange } from '@/utils/math';
 import { DISPLAY_FONT, GOLD_FILL } from '@/game/core/textStyles';
-import { visibleRect, type Rect, type ViewportInfo } from '@/game/core/Layout';
+import type { Rect, ViewportInfo } from '@/game/core/Layout';
 
 const BANNER_WIDTH = 780;
-const BANNER_Y = FIELD.centerY - 110;
+/** Баннер чуть выше центра поля. */
+const BANNER_OFFSET_Y = -110;
 /** Пока баннера нет, счётчик стоит по центру поля; с баннером — уходит ниже. */
-const AMOUNT_Y_SOLO = FIELD.centerY;
-const AMOUNT_Y_WITH_BANNER = FIELD.centerY + 140;
+const AMOUNT_OFFSET_WITH_BANNER = 140;
 
 /** Где по ширине видимой области бьют молнии (доли ширины). */
 const LEFT_ZONE = [0.04, 0.3] as const;
@@ -123,17 +123,17 @@ export class BigWinOverlay extends Container {
   private active = false;
   /** Видимая область — нужна, чтобы молнии били от самого верха экрана. */
   private area: Rect = { x: 0, y: 0, width: DESIGN.width, height: DESIGN.height };
+  /** Центр поля в текущей раскладке — от него строится весь экран. */
+  private center = { x: LANDSCAPE.field.centerX, y: LANDSCAPE.field.centerY };
 
   constructor() {
     super();
     this.eventMode = 'none';
     this.visible = false;
 
-    this.rays.position.set(DESIGN.width / 2, FIELD.centerY);
     this.drawRays();
 
     this.banner.anchor.set(0.5);
-    this.banner.position.set(DESIGN.width / 2, BANNER_Y);
     this.banner.visible = false;
 
     this.amount = new Text({
@@ -160,8 +160,17 @@ export class BigWinOverlay extends Container {
   }
 
   resize(viewport: ViewportInfo): void {
-    this.area = visibleRect(viewport);
+    this.area = viewport.visible;
     const { x, y, width, height } = this.area;
+
+    const { field } = viewport.layout;
+    this.center = { x: field.centerX, y: field.centerY };
+    this.rays.position.set(field.centerX, field.centerY);
+    this.banner.position.set(field.centerX, field.centerY + BANNER_OFFSET_Y);
+    this.amount.position.set(
+      field.centerX,
+      field.centerY + (this.banner.visible ? AMOUNT_OFFSET_WITH_BANNER : 0),
+    );
 
     this.veil.clear().rect(x, y, width, height).fill({ color: 0x03060f });
     this.flash.clear().rect(x, y, width, height).fill({ color: 0xe6f6ff });
@@ -198,7 +207,7 @@ export class BigWinOverlay extends Container {
     this.banner.visible = false;
     this.amount.alpha = 1;
     this.amount.text = formatAmount(0);
-    this.amount.position.set(DESIGN.width / 2, AMOUNT_Y_SOLO);
+    this.amount.position.set(this.center.x, this.center.y);
 
     gameBus.emit('bigwin:start', { tier: finalTier ?? 'big', amount });
 
@@ -286,7 +295,7 @@ export class BigWinOverlay extends Container {
 
     void tweens.to(
       this.amount.position,
-      { y: AMOUNT_Y_WITH_BANNER },
+      { y: this.center.y + AMOUNT_OFFSET_WITH_BANNER },
       { duration: 260 * factor, ease: easeOutCubic },
     );
 

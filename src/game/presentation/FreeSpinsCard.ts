@@ -7,11 +7,11 @@
 
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 
-import { DESIGN, FIELD } from '@/config/layout.config';
+import { LANDSCAPE } from '@/config/layout.config';
 import { easeOutBack, easeOutCubic } from '@/game/core/Easing';
 import { tweens } from '@/game/core/Tween';
 import { formatMoney } from '@/utils/format';
-import { visibleRect, type ViewportInfo } from '@/game/core/Layout';
+import type { ViewportInfo } from '@/game/core/Layout';
 import { DISPLAY_FONT, GOLD_FILL } from '@/game/core/textStyles';
 import type { LightningLayer } from '@/game/fx/LightningFx';
 
@@ -30,10 +30,15 @@ function titleStyle(size: number): TextStyle {
 
 export class FreeSpinsCard extends Container {
   private readonly veil = new Graphics();
+  /** Надписи: стоят по центру поля и ужимаются, если не влезают в ширину сцены. */
+  private readonly card = new Container();
   private readonly headline: Text;
   private readonly subline: Text;
   /** Своя молниевая прослойка, чтобы разряды рисовались поверх вуали. */
   private readonly lightning: LightningLayer;
+  private center = { x: LANDSCAPE.field.centerX, y: LANDSCAPE.field.centerY };
+  /** Ширина, в которую должны уместиться надписи. */
+  private maxWidth = LANDSCAPE.content.width;
 
   constructor(createLightning: () => LightningLayer) {
     super();
@@ -43,18 +48,23 @@ export class FreeSpinsCard extends Container {
 
     this.headline = new Text({ text: '', style: titleStyle(104) });
     this.headline.anchor.set(0.5);
-    this.headline.position.set(DESIGN.width / 2, FIELD.centerY - 60);
 
     this.subline = new Text({ text: '', style: titleStyle(56) });
     this.subline.anchor.set(0.5);
-    this.subline.position.set(DESIGN.width / 2, FIELD.centerY + 70);
+    this.subline.y = 70;
 
-    this.addChild(this.veil, this.lightning, this.headline, this.subline);
+    this.card.addChild(this.headline, this.subline);
+    this.addChild(this.veil, this.lightning, this.card);
   }
 
   resize(viewport: ViewportInfo): void {
-    const { x, y, width, height } = visibleRect(viewport);
+    const { x, y, width, height } = viewport.visible;
     this.veil.clear().rect(x, y, width, height).fill({ color: 0x03060f });
+
+    const { field, content } = viewport.layout;
+    this.center = { x: field.centerX, y: field.centerY };
+    this.maxWidth = content.width - 40;
+    this.card.position.set(field.centerX, field.centerY);
   }
 
   /** Вход в бонус — только количество спинов, без пояснений. */
@@ -85,7 +95,12 @@ export class FreeSpinsCard extends Container {
     this.subline.visible = hasSubline;
 
     // Без подписи заголовок встаёт по центру поля, а не над ней.
-    this.headline.y = hasSubline ? FIELD.centerY - 60 : FIELD.centerY;
+    this.headline.y = hasSubline ? -60 : 0;
+
+    // В портрете «ФРИСПИНЫ ЗАВЕРШЕНЫ» шире сцены — ужимаем всю карточку.
+    this.headline.scale.set(1);
+    const textWidth = Math.max(this.headline.width, hasSubline ? this.subline.width : 0);
+    this.card.scale.set(Math.min(1, this.maxWidth / (textWidth || 1)));
 
     this.visible = true;
     this.veil.alpha = 0;
@@ -96,13 +111,13 @@ export class FreeSpinsCard extends Container {
 
     // Пара разрядов по бокам от надписи — бонус же грозовой.
     void this.lightning.strike(
-      { x: DESIGN.width / 2 - 520, y: FIELD.centerY - 220 },
-      { x: DESIGN.width / 2 - 200, y: FIELD.centerY + 40 },
+      { x: this.center.x - 520, y: this.center.y - 220 },
+      { x: this.center.x - 200, y: this.center.y + 40 },
       { life: 420, width: 8, branches: 3 },
     );
     void this.lightning.strike(
-      { x: DESIGN.width / 2 + 520, y: FIELD.centerY - 220 },
-      { x: DESIGN.width / 2 + 200, y: FIELD.centerY + 40 },
+      { x: this.center.x + 520, y: this.center.y - 220 },
+      { x: this.center.x + 200, y: this.center.y + 40 },
       { life: 420, width: 8, branches: 3 },
     );
 

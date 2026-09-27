@@ -9,7 +9,7 @@
 
 import { BlurFilter, Container } from 'pixi.js';
 
-import { DESIGN, ZEUS } from '@/config/layout.config';
+import { DESIGN, ZEUS_HEIGHT, type Rect, type SceneLayout } from '@/config/layout.config';
 import { TIMINGS } from '@/config/timings.config';
 import { texture } from '@/game/core/AssetLoader';
 import {
@@ -38,22 +38,35 @@ export class ZeusLayer extends Container {
   private power = 0;
   /** Подъём над точкой парения — на призыве Зевс приподнимается. */
   private lift = 0;
+  /** Есть ли Зевс в текущей раскладке (в портрете его нет). */
+  private present = true;
+  /** Верх видимой области — оттуда бьют молнии, когда Зевса нет. */
+  private skyY = 0;
 
   constructor(private readonly lightning: LightningLayer) {
     super();
     this.eventMode = 'none';
 
-    this.rig = new ZeusRig(texture('zeus'), ZEUS.height);
+    this.rig = new ZeusRig(texture('zeus'), ZEUS_HEIGHT);
     this.rig.glow.filters = [new BlurFilter({ strength: 18, quality: 2 })];
 
     this.holder.addChild(this.rig);
     this.addChild(this.holder);
+  }
 
-    this.x = ZEUS.centerX;
-    this.y = ZEUS.centerY;
+  /**
+   * Место Зевса в раскладке. Без Зевса слой скрыт и не считается, а удары
+   * молний идут с верхнего края экрана — тайминги сценария те же.
+   */
+  applyLayout(layout: SceneLayout, visible: Rect): void {
+    this.skyY = visible.y;
+    this.present = layout.zeus !== null;
+    this.visible = this.present;
+    if (layout.zeus) this.position.set(layout.zeus.centerX, layout.zeus.centerY);
   }
 
   update(dt: number): void {
+    if (!this.present) return;
     this.elapsed += dt;
 
     // Парение, дыхание, микро-наклон.
@@ -149,8 +162,10 @@ export class ZeusLayer extends Container {
     const factor = turbo ? TIMINGS.turboFactor : 1;
 
     for (const point of points) {
-      const hand = this.handPoint(HAND_LEFT);
-      void this.lightning.strike(hand, point, {
+      const from = this.present
+        ? this.handPoint(HAND_LEFT)
+        : { x: point.x + randomRange(-120, 120), y: this.skyY };
+      void this.lightning.strike(from, point, {
         life: TIMINGS.lightningStrikeMs * 1.6,
         width: 7,
         branches: 3,
@@ -183,6 +198,11 @@ export class ZeusLayer extends Container {
 
   /** Разряды с неба в обе ладони. */
   private async callDownThunder(): Promise<void> {
+    if (!this.present) {
+      await tweens.delay(140);
+      return;
+    }
+
     const hands = [this.handPoint(HAND_LEFT), this.handPoint(HAND_RIGHT)];
 
     for (const hand of hands) {
@@ -216,7 +236,7 @@ export class ZeusLayer extends Container {
 }
 
 /**
- * Твин числа от его значения в первом кадре анимации до 	o. Стартовое
+ * Твин числа от его значения в первом кадре анимации до `to`. Стартовое
  * значение читается не при вызове, а в первом кадре — к этому моменту
  * предыдущая анимация того же значения уже могла его сдвинуть.
  */

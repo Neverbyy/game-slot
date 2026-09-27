@@ -7,13 +7,13 @@
 
 import { Application, Container, Graphics, Texture } from 'pixi.js';
 
-import { DESIGN } from '@/config/layout.config';
+import { DESIGN, FIELD, FRAME_PADDING, type Rect } from '@/config/layout.config';
 import { TIMINGS } from '@/config/timings.config';
 // Символы-«наполнители» для крутящихся барабанов берём из того же генератора,
 // что и мок: он чисто конфигурационный и на результат спина не влияет —
 // итоговую сетку всё равно присылает сервер.
 import { randomCell, randomGrid } from '@/api/mock/engine';
-import { computeViewport, visibleRect, type ViewportInfo } from './core/Layout';
+import { computeViewport, type ViewportInfo } from './core/Layout';
 import { loadAssets, texture } from './core/AssetLoader';
 import { sound } from './core/SoundManager';
 import { flashCurve } from './core/Easing';
@@ -59,6 +59,8 @@ export class GameApp {
   private fistCutout: Texture | null = null;
 
   private viewport: ViewportInfo = computeViewport(DESIGN.width, DESIGN.height);
+  /** Высота панели, прибитой к низу экрана: сцена вписывается над ней. */
+  private reservedBottom = 0;
   private mode: GameMode = 'base';
   private bet = 100;
   private ready = false;
@@ -74,6 +76,20 @@ export class GameApp {
 
   get pixi(): Application | null {
     return this.app;
+  }
+
+  /** Рамка барабанов в CSS-пикселях экрана — для тестов адаптива. */
+  fieldScreenRect(): Rect {
+    const { field } = this.viewport.layout;
+    const { scale, originX, originY } = this.viewport;
+    const width = FIELD.width + FRAME_PADDING * 2;
+    const height = FIELD.height + FRAME_PADDING * 2;
+    return {
+      x: originX + (field.centerX - width / 2) * scale,
+      y: originY + (field.centerY - height / 2) * scale,
+      width: width * scale,
+      height: height * scale,
+    };
   }
 
   async init(host: HTMLElement): Promise<void> {
@@ -145,6 +161,14 @@ export class GameApp {
   }
 
   /* --- Команды из Vue --- */
+
+  /** Панель внизу экрана сообщает свою высоту — сцена уходит выше неё. */
+  setReservedBottom(px: number): void {
+    const value = Math.round(px);
+    if (value === this.reservedBottom) return;
+    this.reservedBottom = value;
+    this.handleResize();
+  }
 
   setBet(bet: number): void {
     this.bet = bet;
@@ -277,29 +301,37 @@ export class GameApp {
   }
 
   private handleResize(): void {
-    if (!this.app || !this.host) return;
+    // Сцена ещё не собрана (идёт загрузка) — разложим её, когда будет готова.
+    if (!this.app || !this.host || !this.reels) return;
 
     const { clientWidth, clientHeight } = this.host;
-    this.viewport = computeViewport(clientWidth, clientHeight);
+    this.viewport = computeViewport(clientWidth, clientHeight, this.reservedBottom);
+    const { layout, visible } = this.viewport;
 
     this.world.scale.set(this.viewport.scale);
     this.placeWorld();
+
+    // Раскладка могла смениться (поворот экрана) — расставляем слои заново.
+    this.reels.applyLayout(layout);
+    this.frame.applyLayout(layout);
+    this.logo.applyLayout(layout);
+    this.winLabel.applyLayout(layout);
+    this.zeus.applyLayout(layout, visible);
 
     this.background.resize(this.viewport);
     this.bigWin.resize(this.viewport);
     this.freeSpinsCard.resize(this.viewport);
 
-    const { x, y, width, height } = visibleRect(this.viewport);
+    const { x, y, width, height } = visible;
     this.flashOverlay.clear().rect(x, y, width, height).fill({ color: 0xffffff });
 
     gameBus.emit('game:resize', this.viewport);
   }
 
-  /** Мир по центру канваса; смещение — для тряски камеры. */
+  /** Мир на своём месте на экране; смещение — для тряски камеры. */
   private placeWorld(offsetX = 0, offsetY = 0): void {
-    const { screenWidth, screenHeight, scale } = this.viewport;
-    this.world.x = (screenWidth - DESIGN.width * scale) / 2 + offsetX;
-    this.world.y = (screenHeight - DESIGN.height * scale) / 2 + offsetY;
+    this.world.x = this.viewport.originX + offsetX;
+    this.world.y = this.viewport.originY + offsetY;
   }
 }
 

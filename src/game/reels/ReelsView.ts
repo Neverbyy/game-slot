@@ -5,7 +5,7 @@
 
 import { BlurFilter, Container, Graphics, Sprite, Text, type Texture } from 'pixi.js';
 
-import { CELL_STEP, GRID, cellCenter, cellLocal, fieldOrigin } from '@/config/layout.config';
+import { CELL_STEP, FIELD, GRID, cellLocal, type SceneLayout } from '@/config/layout.config';
 import { TIMINGS } from '@/config/timings.config';
 import { WILD } from '@/config/symbols.config';
 import { texture } from '@/game/core/AssetLoader';
@@ -77,10 +77,6 @@ export class ReelsView extends Container {
     super();
     this.eventMode = 'none';
 
-    const origin = fieldOrigin();
-    this.x = origin.x;
-    this.y = origin.y;
-
     this.buildTiles();
 
     for (let col = 0; col < GRID.cols; col++) {
@@ -150,7 +146,14 @@ export class ReelsView extends Container {
 
   /** Центр ячейки в координатах сцены — для молний и волны. */
   cellPoint(col: number, row: number): { x: number; y: number } {
-    return cellCenter(col, row);
+    const local = cellLocal(col, row);
+    return { x: this.x + local.x, y: this.y + local.y };
+  }
+
+  /** Поле ставится левым верхним углом так, чтобы его центр был в центре раскладки. */
+  applyLayout(layout: SceneLayout): void {
+    this.x = layout.field.centerX - FIELD.width / 2;
+    this.y = layout.field.centerY - FIELD.height / 2;
   }
 
   /* --- Спин --- */

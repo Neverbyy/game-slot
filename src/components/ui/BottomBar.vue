@@ -1,31 +1,21 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+/**
+ * Панель управления на ПК: стоит прямо под рамкой барабанов. Её место задано
+ * в дизайн-координатах сцены, а размер — в дизайн-пикселях, поэтому она
+ * масштабируется ровно вместе с канвасом. На телефонах и планшетах вместо
+ * неё — `TouchPanel`.
+ */
+
+import { computed } from 'vue';
 
 import { CONTROL_BAR } from '@/config/layout.config';
+import { AUTOPLAY_OPTIONS, useControls } from '@/composables/useControls';
 import { useGameViewport } from '@/composables/useGameViewport';
-import { useGameStore } from '@/stores/game.store';
-import { useSessionStore } from '@/stores/session.store';
-import { useUiStore } from '@/stores/ui.store';
-import { formatMoney } from '@/utils/format';
 
-const game = useGameStore();
-const session = useSessionStore();
-const ui = useUiStore();
+const { game, ui, autoplayOpen, balance, betText, winText, canChangeBet, onSpin, onAutoplay } =
+  useControls();
 const { viewport, toScreen } = useGameViewport();
 
-const AUTOPLAY_OPTIONS = [10, 25, 50, 100] as const;
-const autoplayOpen = ref(false);
-
-const balance = computed(() => formatMoney(session.balance));
-const betText = computed(() => formatMoney(game.bet));
-const winText = computed(() => formatMoney(game.displayWin));
-const canChangeBet = computed(() => !game.isSpinning && !game.isFreeSpins && !game.isAutoplay);
-
-/**
- * Панель стоит прямо под рамкой барабанов: её место задано в дизайн-
- * координатах сцены, а размер — в дизайн-пикселях, поэтому она
- * масштабируется ровно вместе с канвасом.
- */
 const placement = computed(() => {
   const origin = toScreen(CONTROL_BAR.x, CONTROL_BAR.y);
   return {
@@ -36,23 +26,10 @@ const placement = computed(() => {
     transform: `scale(${viewport.value.scale})`,
   };
 });
-
-function onSpin(): void {
-  if (game.isAutoplay) {
-    game.stopAutoplay();
-    return;
-  }
-  void game.spin();
-}
-
-function onAutoplay(count: number): void {
-  autoplayOpen.value = false;
-  game.startAutoplay(count);
-}
 </script>
 
 <template>
-  <footer class="bar" :style="placement">
+  <footer class="bar" data-testid="docked-panel" :style="placement">
     <button class="bar__menu" type="button" title="Меню" @click="ui.openModal('menu')">
       <span />
       <span />
@@ -142,6 +119,7 @@ function onAutoplay(count: number): void {
     <button
       class="spin"
       type="button"
+      data-testid="spin"
       :class="{ 'is-stop': game.isAutoplay }"
       :disabled="(!game.canSpin && !game.isAutoplay) || game.isFreeSpins"
       @click="onSpin"

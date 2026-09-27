@@ -27,6 +27,15 @@ body,
   padding: 0;
 }
 
+/* На телефонах 100% высоты — вместе со скрытой адресной строкой, низ уезжает под неё. */
+@supports (height: 100dvh) {
+  html,
+  body,
+  #app {
+    height: 100dvh;
+  }
+}
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -42,6 +51,8 @@ body {
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  /* Двойной тап по кнопке не должен зумить страницу. */
+  touch-action: manipulation;
 }
 
 button {
